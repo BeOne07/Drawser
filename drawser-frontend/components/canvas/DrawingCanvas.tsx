@@ -101,7 +101,7 @@ export const DrawingCanvas = forwardRef(function DrawingCanvas(
       if (!canvas || !ctx) return;
 
       if (payload.type === 'fill') {
-        floodFill(ctx, Math.round(payload.x), Math.round(payload.y), payload.color, canvas);
+        floodFill(ctx, payload.x, payload.y, payload.color, canvas);
         return;
       }
 
@@ -135,7 +135,7 @@ export const DrawingCanvas = forwardRef(function DrawingCanvas(
     saveSnapshot(ctx, canvas);
 
     if (tool === 'fill') {
-      floodFill(ctx, Math.round(point.x), Math.round(point.y), color, canvas);
+      floodFill(ctx, point.x, point.y, color, canvas);
       const socket = getSocket();
       socket.emit('draw_event', {
         roomId,
@@ -252,9 +252,8 @@ export const DrawingCanvas = forwardRef(function DrawingCanvas(
         onPointerMove={moveDraw}
         onPointerUp={endDraw}
         onPointerLeave={endDraw}
-        className={`h-auto w-full rounded-xl border border-white/20 bg-white touch-none ${
-          isDrawer ? 'cursor-crosshair' : 'cursor-default'
-        }`}
+        className={`h-auto w-full rounded-xl border border-white/20 bg-white touch-none ${isDrawer ? 'cursor-crosshair' : 'cursor-default'
+          }`}
       />
     </div>
   );
@@ -289,31 +288,40 @@ function drawSegment(
   ctx.lineWidth = size;
   ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
 
-  const fromX = payload.prevX ?? payload.x;
-  const fromY = payload.prevY ?? payload.y;
+  const canvasWidth = ctx.canvas.width;
+  const canvasHeight = ctx.canvas.height;
+
+  const fromX = (payload.prevX ?? payload.x) * canvasWidth;
+  const fromY = (payload.prevY ?? payload.y) * canvasHeight;
+  const toX = payload.x * canvasWidth;
+  const toY = payload.y * canvasHeight;
 
   ctx.beginPath();
   ctx.moveTo(fromX, fromY);
-  ctx.lineTo(payload.x, payload.y);
+  ctx.lineTo(toX, toY);
   ctx.stroke();
 }
 
 function getCanvasPoint(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
+  // Return normalized coordinates (0.0 to 1.0) instead of absolute pixels
   return {
-    x: ((clientX - rect.left) / rect.width) * canvas.width,
-    y: ((clientY - rect.top) / rect.height) * canvas.height
+    x: (clientX - rect.left) / rect.width,
+    y: (clientY - rect.top) / rect.height
   };
 }
 
 function floodFill(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
+  normalizedX: number,
+  normalizedY: number,
   fillColorHex: string,
   canvas: HTMLCanvasElement
 ) {
+  const x = Math.round(normalizedX * canvas.width);
+  const y = Math.round(normalizedY * canvas.height);
+
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = image.data;
   const w = canvas.width;

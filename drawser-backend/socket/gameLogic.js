@@ -38,13 +38,14 @@ module.exports = function registerGameHandlers(io, socket, rooms) {
             roundTimer: null,
             wordPickTimeout: null,
             hintTimers: [],
+            usedWords: new Set(),
         };
 
         io.to(room.id).emit('game_started', {
             gameState: publicGameState(room.gameState),
             players: serializeScores(room),
         });
-        updateRoomStatus(room.id, 'playing').catch(() => {});
+        updateRoomStatus(room.id, 'playing').catch(() => { });
         await startRound(io, room);
     });
 
@@ -58,9 +59,9 @@ module.exports = function registerGameHandlers(io, socket, rooms) {
 
         if (typeof word !== 'string' || !word.trim()) return;
         clearTimeout(gs.wordPickTimeout);
-        gs.wordPickTimeout = null;
-
-        startDrawingPhase(io, room, word.trim().toLowerCase());
+        const picked = word.trim().toLowerCase();
+        gs.usedWords.add(picked);
+        startDrawingPhase(io, room, picked);
     });
 };
 
@@ -85,7 +86,7 @@ async function startRound(io, room) {
 
     let words = [];
     try {
-        words = await getRandomWords(3, room.settings.difficulty);
+        words = await getRandomWords(3, room.settings.difficulty, gs.usedWords);
     } catch {
         words = [];
     }
@@ -200,7 +201,7 @@ async function endGame(io, room) {
         .sort((a, b) => b.score - a.score);
 
     io.to(room.id).emit('game_over', { leaderboard });
-    updateRoomStatus(room.id, 'ended').catch(() => {});
+    updateRoomStatus(room.id, 'ended').catch(() => { });
 
     if (leaderboard.length) {
         const winnerId = leaderboard[0].userId;
@@ -266,12 +267,14 @@ function revealHintLetters(currentHint, fullWord, maxLettersToReveal) {
     for (let i = 0; i < hintChars.length; i += 1) {
         if (hintChars[i] === '_') hiddenIndices.push(i);
     }
-    if (!hiddenIndices.length) return currentHint;
+    // Don't reveal the very last hidden letter ever, keep it challenging
+    if (hiddenIndices.length <= 1) return currentHint;
 
     const lettersToReveal = Math.min(
-        hiddenIndices.length,
-        Math.max(1, Math.min(maxLettersToReveal, 2))
+        hiddenIndices.length - 1, // Ensure we never reveal everything
+        Math.max(1, maxLettersToReveal)
     );
+
     const picks = sample(hiddenIndices, lettersToReveal);
     for (const idx of picks) {
         hintChars[idx] = fullWord[idx];
