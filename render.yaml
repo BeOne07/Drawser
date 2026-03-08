@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: drawser-backend
+    runtime: node
+    rootDir: drawser-backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CLIENT_URL
+        value: "https://drawser.vercel.app" # REPLACE THIS WITH YOUR VERCEL URL

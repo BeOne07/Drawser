@@ -1,0 +1,20 @@
+{
+  "name": "drawser",
+  "version": "1.0.0",
+  "description": "Multiplayer drawing and guessing game workspace",
+  "private": true,
+  "workspaces": [
+    "drawser-backend",
+    "drawser-frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace drawser-backend\" \"npm run dev --workspace drawser-frontend\"",
+    "dev:backend": "npm run dev --workspace drawser-backend",
+    "dev:frontend": "npm run dev --workspace drawser-frontend",
+    "build": "npm run build --workspace drawser-frontend",
+    "seed:words": "npm run seed:words --workspace drawser-backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
